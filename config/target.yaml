@@ -1,0 +1,28 @@
+# 被测平台配置（公开，可入库）
+target:
+  name: "人工智能创新平台 (AI-SOC)"
+  base_url: "http://192.168.1.193:16003"
+  timeout_seconds: 10
+  retries: 2
+
+# 一些常用 API 路径
+endpoints:
+  config_general: "/api/config/general"
+  config_integrations: "/api/config/integrations"
+  findings: "/api/findings/"
+  cases: "/api/cases/"
+  orchestrator_status: "/api/orchestrator/status"
+  reasoning: "/api/reasoning/{session_id}"
+  vstrike_iframe_token: "/api/integrations/vstrike/ui/iframe-token"
+
+# Wazuh / Indexer 默认端口
+wazuh:
+  manager_port: 55000
+  indexer_port: 9200
+  alerts_index_pattern: "wazuh-alerts-*"
+
+# 测试运行参数
+runtime:
+  default_run_window_seconds: 300   # 单条用例时间窗口（用于查询 Wazuh）
+  dry_run_default: true             # 响应类用例默认 dry-run
+  ai_score_min_pass: 4              # AI 研判最低过关分数 (5 分制)

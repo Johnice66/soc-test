@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+.env
+config/credentials.yaml
+reports/
+!reports/.gitkeep
+*.log
+.DS_Store
+.claude/
