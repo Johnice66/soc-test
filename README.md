@@ -9,7 +9,7 @@
 ## 是什么
 
 - **测试方法论**：MITRE ATT&CK 主线 + SOC 闭环 + AI/Agent 运行时安全（三层模型，详见 [docs/01_scheme_overview.md](docs/01_scheme_overview.md)）
-- **用例规模**：100 条总用例（来源 xlsx，本仓库已扩展到 103 条）；本仓库**已落地** 6 步 e2e pipeline + **20 条首批 P0** + **11 条 workflow 新增** = **37 个测试函数**（详见 [docs/08_p0_case_index.md](docs/08_p0_case_index.md)）
+- **用例规模**：100 条总用例（来源 xlsx，本仓库已扩展到 114 条）；本仓库**已落地** 6 步 e2e pipeline + **20 条首批 P0** + **11 条 workflow 第二批** + **20 条 HTTP-only 第三批** = **57 个测试函数**（详见 [docs/08_p0_case_index.md](docs/08_p0_case_index.md)）
 - **运行框架**：pytest + 自定义 EvidenceRecorder（六层证据链）+ AIScorer（七维度评分）
 - **产物**：每次运行在 `reports/<时间戳>/` 下生成 `report.md`、`report.json` 和 `evidence/<用例ID>.json`
 
@@ -113,6 +113,23 @@ soc-test/
 ---
 
 ## 更新日志
+
+### 2026-06-26（第二次更新：HTTP-only 第三批 20 条）
+- 更新内容：新增 20 条 HTTP-only 用例（全程无需 SSH/Wazuh 凭据，0 SKIP）：
+  - 平台基线 11 条：`SOC-WEB-001~004`（安全响应头 / 方法白名单 / Server 暴露 / CSRF cookie 属性）、`SOC-AUTH-001~002`（登录限流 / 伪造 Bearer 响应一致性）、`SOC-API-001~005`（findings / cases / health / orchestrator / 错误 envelope 契约）
+  - 真实 xlsx ID 9 条：`SOC-AI-002/003/006/008/011/014/024`、`SOC-WF-004/006`（SSE 暴露 / reasoning IDOR / X-Workspace-Id 越权 / CSRF 刷新登出 / WebIDE ticket 探测 / CORS 凭据组合 / Agent 敏感数据扫描 / 攻击链还原 / 误报抑制）
+  - HTTPClient 新增 `raw_request`（带响应头返回，可用于断言安全头/状态码）
+- 影响范围：`tests/baseline/`（新目录 11 文件）、`tests/ai_api/`（新增 6 文件）、`tests/ai_socket/`（新增 1 文件）、`tests/workflow/`（新增 2 文件）、`tests/common/http_client.py`、`config/test_matrix.yaml`（total 103→114）、`pytest.ini`（新增 `baseline` marker）、`docs/08_p0_case_index.md`、本 README。
+- 验证结果：参见 `reports/20260626-092144/report.md` —— **14 PASS / 5 WARN / 1 FAIL / 0 SKIP**。
+  - **FAIL 1 条**：`SOC-AI-003` IDOR —— 匿名 GET `/api/reasoning/1` 返回完整会话内容（含 token cost、interactions），需平台加 user/session 校验。
+  - **WARN 5 条**：CORS 缺 `Vary: Origin`；伪造 Bearer 错误消息 3 种（弱用户枚举风险）；安全响应头 11/15；`Server: nginx/1.24.0 (Ubuntu)` 暴露；攻击链证据仅 1 类技术（initial_access）。
+- 备注：`SOC-WF-006` 标 `destructive`（会在平台创建一个低风险 case，title 含 `[WF-006 TEST]` 便于事后清理）。
+
+### 2026-06-26
+- 更新内容：代码首次推送至 GitHub 仓库 [Johnice66/soc-test](https://github.com/Johnice66/soc-test)（默认分支 `main`，commit `b046ff7`，共 76 个文件）。`.gitignore` 增加 `.claude/`；`config/credentials.yaml`、`reports/`、虚拟环境与缓存均已排除。
+- 影响范围：`.gitignore`、远程仓库初始化（未修改任何业务代码）。
+- 验证结果：`gh repo view Johnice66/soc-test` 可见；`git diff --cached --name-only | grep -iE 'cred|password|secret|\.env|token'` 无真实凭据泄漏（仅 `credentials.yaml.example` 占位符）。
+- 备注：commit Author/Committer 均为 `Johnice66 <weicong.liang68@gmail.com>`，使用 `git -c user.name=... -c user.email=...` 单次覆盖，未修改全局 git config。如 GitHub 用户页未把 commit 归属到 Johnice66 账号，需在 https://github.com/settings/emails 验证该邮箱；commit 末尾 `Co-Authored-By: Claude` 会令 contributors 列表出现 Claude，可按需移除后 force-push。
 
 ### 2026-06-23
 - 更新内容：在 26 个测试基础上新增 11 条 workflow 用例（WF-001/002/005/007/008/010/011/012/013/014/015），HTTPClient 增加 `list_workflows / get_workflow / list_workflow_runs / get_workflow_run / trigger_workflow_run`。`test_matrix.yaml` 同步追加 WF-013/014/015。

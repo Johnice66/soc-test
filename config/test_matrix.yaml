@@ -1,5 +1,5 @@
 source: AI-SOC测试点与测试用例矩阵_MITRE_ATTCK映射版.xlsx
-total: 103
+total: 114
 cases:
   SOC-TEL-001:
     category: 遥测采集与基础链路
@@ -1957,4 +1957,213 @@ cases:
     strength: L1
     priority: P0
     acceptance: 联动启用时runs自动+1；未启用时报告标 WARN
+    source_url: in-house
+  SOC-WEB-001:
+    category: 平台基线/HTTP边界
+    scenario: 关键安全响应头存在性
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: HTTP边界硬化
+    data_source: /、/api/health、/api/findings/ 响应头
+    precondition: 平台 HTTP 服务可达
+    steps: 多端点 GET 检查 CSP/XFO/XCTO/Referrer-Policy/ACAO=*等
+    expected_platform: 关键安全响应头齐全
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 硬指标全部通过；缺项<25% 视为 WARN
+    source_url: in-house
+  SOC-WEB-002:
+    category: 平台基线/HTTP边界
+    scenario: HTTP方法白名单（只读端点拒绝写）
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: HTTP边界硬化
+    data_source: /api/findings/ 等
+    precondition: 平台 HTTP 服务可达
+    steps: 对只读端点发 DELETE/PUT/PATCH
+    expected_platform: 全部 405（或 401/403）
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 任一 2xx 即 FAIL
+    source_url: in-house
+  SOC-WEB-003:
+    category: 平台基线/HTTP边界
+    scenario: Server 头版本/OS 信息暴露
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: 信息泄漏
+    data_source: 任意响应的 Server 头
+    precondition: 平台 HTTP 服务可达
+    steps: GET / 后检查 Server 头是否含精确版本与 OS
+    expected_platform: 不暴露精确版本与 OS
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 暴露版本+OS 标 WARN；仅版本 WARN；都不暴露 PASS
+    source_url: in-house
+  SOC-WEB-004:
+    category: 平台基线/HTTP边界
+    scenario: CSRF cookie 属性合规
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: Cookie/会话硬化
+    data_source: Set-Cookie 响应头
+    precondition: 平台返回 csrf_token cookie
+    steps: GET /api/health，解析 Set-Cookie，校验 Path/SameSite/Secure/HttpOnly
+    expected_platform: Path=/ + SameSite ∈ {strict,lax}；Secure 必须
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 三项全部齐备 PASS；缺 Secure WARN；缺核心 FAIL
+    source_url: in-house
+  SOC-AUTH-001:
+    category: 平台基线/鉴权
+    scenario: 登录暴力限流（T1110）
+    tactic: T1110
+    tech_id: T1110
+    tech_name: Brute Force
+    mitre_mainline: 是
+    soc_domain: 鉴权/限流
+    data_source: /api/auth/login
+    precondition: 平台开启登录限流
+    steps: 连发 15 次错误登录请求
+    expected_platform: ≤10 次内返回 429/423
+    expected_wazuh: 平台或网关侧产生 brute 类告警
+    expected_vigil_ai: 不适用
+    expected_response: 限流期间继续 401/429
+    strength: L1
+    priority: P0
+    acceptance: 触发限流 PASS；偏晚 WARN；不触发 FAIL
+    source_url: in-house
+  SOC-AUTH-002:
+    category: 平台基线/鉴权
+    scenario: 伪造 Bearer/凭据响应一致性（防用户枚举）
+    tactic: T1550.001
+    tech_id: T1550.001
+    tech_name: Application Access Token
+    mitre_mainline: 是
+    soc_domain: 鉴权
+    data_source: /api/users/me
+    precondition: 平台保护 /api/users/me
+    steps: 5 种伪造 Authorization 头分别请求
+    expected_platform: 全 401，错误消息高度一致
+    expected_wazuh: 平台侧记录鉴权失败
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 全 401 + 消息≤2种 PASS；全 401 但消息多 WARN；状态不一致 FAIL
+    source_url: in-house
+  SOC-API-001:
+    category: 平台基线/API契约
+    scenario: /api/findings/ 字段契约
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: 数据契约
+    data_source: /api/findings/?limit=10
+    precondition: 平台已有≥1 finding
+    steps: 拉取 10 条，校验必需字段 + 推荐字段 + limit 生效
+    expected_platform: 必需字段齐全
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 必需字段缺失 FAIL；缺推荐字段 WARN
+    source_url: in-house
+  SOC-API-002:
+    category: 平台基线/API契约
+    scenario: /api/cases/ 字段与 ID 格式契约
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: 数据契约
+    data_source: /api/cases/?limit=10
+    precondition: 平台已有≥1 case
+    steps: 拉取 10 条，校验必需字段 + case_id 形如 case-YYYY-MM-DD-<hex>
+    expected_platform: 必需字段 + ID 格式合规
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 字段或 ID 不合规 FAIL
+    source_url: in-house
+  SOC-API-003:
+    category: 平台基线/API契约
+    scenario: /api/health 字段契约
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: 运维可观测
+    data_source: /api/health
+    precondition: 平台 HTTP 可达
+    steps: GET /api/health 验 status/version/storage 字段
+    expected_platform: status=healthy + version + storage.backend + database_available=true
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 任一字段缺失/异常 FAIL
+    source_url: in-house
+  SOC-API-004:
+    category: 平台基线/API契约
+    scenario: /api/orchestrator/status 字段契约
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: 编排可观测
+    data_source: /api/orchestrator/status
+    precondition: orchestrator 服务在线
+    steps: 校验 enabled/active_agents/.../pending_review 计数非负整数
+    expected_platform: 字段齐全且计数合法
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: 任一字段缺失/类型错/负数 FAIL
+    source_url: in-house
+  SOC-API-005:
+    category: 平台基线/API契约
+    scenario: 错误响应封装一致性（404）
+    tactic: N/A
+    tech_id: N/A
+    tech_name: SOC平台基线
+    mitre_mainline: 否
+    soc_domain: 错误处理
+    data_source: 未知 /api/* 路径
+    precondition: 平台 HTTP 可达
+    steps: 4 个未知 /api/* 路径 GET，对比 envelope 结构
+    expected_platform: 结构一致且非 HTML
+    expected_wazuh: 无新增要求
+    expected_vigil_ai: 不适用
+    expected_response: 无响应
+    strength: L1
+    priority: P0
+    acceptance: envelope 不一致或返回 HTML WARN
     source_url: in-house

@@ -1,4 +1,4 @@
-# 08 — P0 用例索引（20 条 + 第二批新增 8 条 workflow）
+# 08 — P0 用例索引（20 + 11 workflow + 第三批 20 条 HTTP-only）
 
 > 一站式查 20 条 P0 → 文件路径 → MITRE → 触达面 → 验收指标。
 
@@ -56,6 +56,48 @@
 
 ---
 
+## 第三批新增 20 条（HTTP-only，全程无需 SSH/Wazuh 凭据）
+
+> 重点是"能完整跑完"——本批 0 SKIP，14 PASS / 5 WARN / 1 FAIL。9 条对应 xlsx 真实 ID（SOC-AI / SOC-WF），11 条按平台基线自定 ID（SOC-WEB / SOC-AUTH / SOC-API）。
+
+### 平台基线（HTTP 边界 / 鉴权 / API 契约）
+
+| # | 用例 ID | 场景 | 触达 API | 关键断言 | 文件 |
+|---|---|---|---|---|---|
+| 32 | SOC-WEB-001 | 安全响应头存在性 | / + /api/health + /api/findings/ | CSP/XFO/XCTO/Referrer-Policy/ACAO 非 * | [baseline/test_web_001_security_headers.py](../tests/baseline/test_web_001_security_headers.py) |
+| 33 | SOC-WEB-002 | HTTP 方法白名单 | /api/findings/ 等 | DELETE/PUT/PATCH ≠ 2xx | [baseline/test_web_002_method_whitelist.py](../tests/baseline/test_web_002_method_whitelist.py) |
+| 34 | SOC-WEB-003 | Server 版本/OS 暴露 | / 响应头 | 精确版本+OS 暴露 → WARN | [baseline/test_web_003_server_disclosure.py](../tests/baseline/test_web_003_server_disclosure.py) |
+| 35 | SOC-WEB-004 | CSRF cookie 属性 | Set-Cookie | Path=/, SameSite, Secure | [baseline/test_web_004_csrf_cookie.py](../tests/baseline/test_web_004_csrf_cookie.py) |
+| 36 | SOC-AUTH-001 | 登录暴力限流 | /api/auth/login ×15 | ≤10 次内出现 429 | [baseline/test_auth_001_login_brute_rate_limit.py](../tests/baseline/test_auth_001_login_brute_rate_limit.py) |
+| 37 | SOC-AUTH-002 | 伪造 Bearer 响应一致性 | /api/users/me ×5 | 全 401 + 错误消息≤2 种 | [baseline/test_auth_002_forged_bearer.py](../tests/baseline/test_auth_002_forged_bearer.py) |
+| 38 | SOC-API-001 | findings 字段契约 | /api/findings/?limit=10 | finding_id/description + mitre_predictions | [baseline/test_api_001_findings_contract.py](../tests/baseline/test_api_001_findings_contract.py) |
+| 39 | SOC-API-002 | cases 字段+ID 格式 | /api/cases/?limit=10 | case_id 形如 case-YYYY-MM-DD-hex | [baseline/test_api_002_cases_contract.py](../tests/baseline/test_api_002_cases_contract.py) |
+| 40 | SOC-API-003 | health 字段契约 | /api/health | status/version/storage 齐全 | [baseline/test_api_003_health_contract.py](../tests/baseline/test_api_003_health_contract.py) |
+| 41 | SOC-API-004 | orchestrator 字段契约 | /api/orchestrator/status | 计数字段非负整数 | [baseline/test_api_004_orchestrator_status_contract.py](../tests/baseline/test_api_004_orchestrator_status_contract.py) |
+| 42 | SOC-API-005 | 错误 envelope 一致性 | 4 个未知 /api/* | 结构一致 + 非 HTML | [baseline/test_api_005_error_envelope.py](../tests/baseline/test_api_005_error_envelope.py) |
+
+### AI 平台/Socket（对应 xlsx 真实 ID）
+
+| # | 用例 ID | 场景 | 触达 API | 关键断言 | 文件 |
+|---|---|---|---|---|---|
+| 43 | SOC-AI-002 | 未认证 SSE 暴露探测 | 8 条候选 SSE 路径 | 无 200+text/event-stream | [ai_api/test_ai_002_unauth_sse.py](../tests/ai_api/test_ai_002_unauth_sse.py) |
+| 44 | SOC-AI-003 | reasoning 跨用户访问（IDOR） | /api/reasoning/{1..3} | 401/403 | [ai_api/test_ai_003_reasoning_idor.py](../tests/ai_api/test_ai_003_reasoning_idor.py) |
+| 45 | SOC-AI-006 | X-Workspace-Id 越权 | 4 条端点 (有/无头对比) | 响应体不膨胀 | [ai_api/test_ai_006_workspace_id_spoof.py](../tests/ai_api/test_ai_006_workspace_id_spoof.py) |
+| 46 | SOC-AI-008 | CSRF refresh/logout | /api/auth/{refresh,logout} | 全 401 | [ai_api/test_ai_008_csrf_refresh_logout.py](../tests/ai_api/test_ai_008_csrf_refresh_logout.py) |
+| 47 | SOC-AI-011 | WebIDE/ticket 匿名探测 | 6 条 ticket 端点候选 | 无 token-like 200 | [ai_api/test_ai_011_webide_url_probe.py](../tests/ai_api/test_ai_011_webide_url_probe.py) |
+| 48 | SOC-AI-014 | CORS 通配+凭据组合 | /api/health (Origin: evil) | ACAO 不回写 evil, 不通配+凭据 | [ai_api/test_ai_014_cors_credentials.py](../tests/ai_api/test_ai_014_cors_credentials.py) |
+| 49 | SOC-AI-024 | Agent 输出敏感数据扫描 | /api/reasoning/{sid}/interactions | 6 类秘密正则全部 0 命中 | [ai_socket/test_ais_024_agent_secret_leak_scan.py](../tests/ai_socket/test_ais_024_agent_secret_leak_scan.py) |
+| 50 | SOC-WF-004 | 攻击链 case 还原 | findings+cases+reasoning | ≥2 类 MITRE 技术共现 | [workflow/test_wf_004_chain_reconstruction.py](../tests/workflow/test_wf_004_chain_reconstruction.py) |
+| 51 | SOC-WF-006 | 误报抑制（low 不升级） | /api/cases create+get | priority 留 low/medium | [workflow/test_wf_006_false_positive_suppression.py](../tests/workflow/test_wf_006_false_positive_suppression.py) |
+
+### 第三批结果（reports/20260626-092144/）
+
+- **20 用例：14 PASS / 5 WARN / 1 FAIL / 0 SKIP**
+- 1 FAIL：**SOC-AI-003** — 匿名 GET /api/reasoning/1 返回完整会话（含 token cost、interactions）。这是真实的 broken authentication / IDOR，用例已把它钉死，待平台修复后转 PASS。
+- 5 WARN：SOC-AI-014（缺 Vary: Origin）、SOC-AUTH-002（错误消息 3 种，可能用户枚举）、SOC-WEB-001（11/15 头检查通过）、SOC-WEB-003（暴露 nginx/1.24.0 (Ubuntu)）、SOC-WF-004（仅观察到 1 类 MITRE 技术）
+
+---
+
 ## 加上 6 步 Pipeline 冒烟
 
 | # | 用例 ID | 场景 | 文件 |
@@ -67,7 +109,7 @@
 | P5 | PIPELINE-STEP-5 | AI 研判 | 同上::test_step5_ai_analysis |
 | P6 | PIPELINE-STEP-6 | Dry-run 响应 | 同上::test_step6_dry_run_response |
 
-合计：**37 个测试函数**（6 pipeline + 20 P0 首批 + 11 P0 workflow 新增）。
+合计：**57 个测试函数**（6 pipeline + 20 P0 首批 + 11 P0 workflow 第二批 + 20 P0 第三批 HTTP-only）。
 
 ---
 

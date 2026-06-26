@@ -184,6 +184,54 @@ class HTTPClient:
     def reject_action(self, action_id: str, reason: str = "") -> dict:
         return self.post(f"/api/approvals/{action_id}/reject", json_data={"reason": reason}).json or {}
 
+    # ---------- 通用裸请求（带 headers 返回） ----------
+    def raw_request(
+        self,
+        method: str,
+        path: str,
+        headers: dict | None = None,
+        json_data: dict | None = None,
+        timeout: float | None = None,
+    ) -> dict:
+        """需要拿到响应头/原始字节时用这个；同样写入 call_log 供证据采集。
+        返回 {status, headers, text, json, elapsed_ms, request_id}。
+        """
+        url = f"{self.base_url}{path}"
+        rid = f"soc-test-{uuid.uuid4().hex[:12]}"
+        h = {"X-Request-Id": rid}
+        h.update(headers or {})
+        t0 = time.perf_counter()
+        try:
+            resp = self.session.request(
+                method, url, headers=h, json=json_data,
+                timeout=timeout or self.timeout, allow_redirects=False,
+            )
+        except requests.RequestException as exc:
+            elapsed = (time.perf_counter() - t0) * 1000
+            self.call_log.append(HTTPResult(
+                method=method, path=path, status_code=-1, request_id=rid,
+                elapsed_ms=round(elapsed, 1), body_snippet=str(exc)[:300], json=None,
+            ))
+            return {"status": -1, "headers": {}, "text": str(exc)[:300],
+                    "json": None, "elapsed_ms": round(elapsed, 1), "request_id": rid}
+        elapsed = (time.perf_counter() - t0) * 1000
+        try:
+            body_json = resp.json()
+        except Exception:
+            body_json = None
+        self.call_log.append(HTTPResult(
+            method=method, path=path, status_code=resp.status_code, request_id=rid,
+            elapsed_ms=round(elapsed, 1), body_snippet=resp.text[:300], json=body_json,
+        ))
+        return {
+            "status": resp.status_code,
+            "headers": {k.lower(): v for k, v in resp.headers.items()},
+            "text": resp.text,
+            "json": body_json,
+            "elapsed_ms": round(elapsed, 1),
+            "request_id": rid,
+        }
+
     # ---------- 鉴权策略探测 ----------
     def probe_auth_policy(self) -> dict:
         """返回 token/auth 策略的多个探测信号，用于报告里整理出'鉴权策略说明'。"""
