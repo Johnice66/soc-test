@@ -23,7 +23,7 @@ CASE_ID_1 = "PIPELINE-STEP-1"
 
 
 def test_step1_docker_panel_detection(target, evidence_recorder):
-    """16003 端口应为 AI-SOC 平台，不应直接暴露 Docker Remote API。"""
+    """配置的 AI-SOC 入口不应直接暴露 Docker Remote API。"""
     rec = evidence_recorder
     rec.data.case_id = CASE_ID_1
     paths = [

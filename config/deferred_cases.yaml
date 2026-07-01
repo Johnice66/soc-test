@@ -1,0 +1,25 @@
+# Excel 矩阵中尚未具备执行条件的 P0 用例。
+# 这些用例不创建占位 test，避免 SKIP 数量掩盖真实实现进度。
+cases:
+  SOC-TEL-002: {requires: [wazuh_indexer, apisix_logs], reason: "需按 request_id 核对 APISIX 原始访问日志字段"}
+  SOC-TEL-007: {requires: [wazuh_indexer, custom_vigil], reason: "需触发唯一 High 告警并核对转发前后 alert_id"}
+  SOC-TEL-008: {requires: [wazuh_indexer, aggregation_policy], reason: "需受控产生同源同类告警并观察 5 分钟聚合窗口"}
+  SOC-ATT-005: {requires: [ssh_host, wazuh_indexer, multiple_test_accounts], reason: "缺多个隔离测试账号"}
+  SOC-ATT-011: {requires: [revoked_session_cookie], reason: "缺已登出或已撤销的真实测试 Cookie"}
+  SOC-ATT-013: {requires: [ssh_host, wazuh_indexer, command_audit], reason: "缺启用命令审计的受控主机"}
+  SOC-ATT-018: {requires: [ssh_host, wazuh_indexer, disposable_privileged_account], reason: "缺可回滚的临时高权限账号"}
+  SOC-ATT-023: {requires: [ssh_host, wazuh_indexer, defense_impairment_simulator], reason: "不得在当前环境真实停用安全组件"}
+  SOC-ATT-026: {requires: [wazuh_indexer, credential_dump_simulator], reason: "缺安全的凭据转储事件模拟器"}
+  SOC-ATT-035: {requires: [ssh_host, wazuh_indexer, authorized_download_endpoint], reason: "缺授权下载端与无害样本"}
+  SOC-ATT-038: {requires: [kubernetes_test_namespace, wazuh_indexer], reason: "缺隔离 K8s 测试命名空间和策略"}
+  SOC-ATT-041: {requires: [ssh_host, wazuh_indexer, authorized_upload_endpoint], reason: "缺授权数据接收端"}
+  SOC-ATT-043: {requires: [ssh_host, wazuh_indexer, fim_test_path], reason: "缺已纳入 FIM 的测试配置路径"}
+  SOC-ATT-044: {requires: [ssh_host, wazuh_indexer, fim_test_path], reason: "缺可恢复且已纳入 FIM 的测试目录"}
+  SOC-ATT-045: {requires: [ssh_host, wazuh_indexer, ransomware_simulator], reason: "缺隔离目录和安全勒索模拟脚本"}
+  SOC-AI-004: {requires: [two_users, two_workspaces, agent_event_stream], reason: "缺双用户双工作区测试资源"}
+  SOC-AI-010: {requires: [webide_ticket], reason: "当前未发现可生成且绑定资源的 WebIDE ticket"}
+  SOC-AI-013: {requires: [role_mutation, authenticated_event_stream], reason: "缺可动态降权账号和已认证长连接"}
+  SOC-AI-021: {requires: [agent_message_endpoint, idempotency_key], reason: "尚未确认可安全提交消息的 Agent 幂等接口及请求结构"}
+  SOC-AI-022: {requires: [two_users, pending_hitl_run], reason: "缺非授权用户和待人工确认 run"}
+  SOC-AI-026: {requires: [two_tenants, agent_sessions], reason: "缺双租户会话资源"}
+  SOC-AI-027: {requires: [memory_api, two_users], reason: "尚未发现记忆资源 API，且缺资源所有者/非授权用户"}

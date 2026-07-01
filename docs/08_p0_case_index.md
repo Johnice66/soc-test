@@ -1,4 +1,4 @@
-# 08 — P0 用例索引（20 + 11 workflow + 第三批 20 条 HTTP-only）
+# 08 — P0 用例索引与实现状态
 
 > 一站式查 20 条 P0 → 文件路径 → MITRE → 触达面 → 验收指标。
 
@@ -109,7 +109,16 @@
 | P5 | PIPELINE-STEP-5 | AI 研判 | 同上::test_step5_ai_analysis |
 | P6 | PIPELINE-STEP-6 | Dry-run 响应 | 同上::test_step6_dry_run_response |
 
-合计：**57 个测试函数**（6 pipeline + 20 P0 首批 + 11 P0 workflow 第二批 + 20 P0 第三批 HTTP-only）。
+合计：**59 个测试函数**。本轮新增 `SOC-TEL-010` 与矩阵覆盖守卫 `SOC-MATRIX-001`。
+
+## 第四批：证据完整性与 P0 暂缓治理
+
+| 用例 ID | 状态 | 关键验收 | 文件 |
+|---|---|---|---|
+| SOC-TEL-010 | 已实现、HTTP-only | 敏感值为 0；时间窗完整；证据 JSON 的 SHA-256 可复核 | [tel/test_tel_010_evidence_integrity.py](../tests/tel/test_tel_010_evidence_integrity.py) |
+| SOC-MATRIX-001 | 已实现、仓库基线 | 每条 P0 必须已实现或登记明确的暂缓条件 | [baseline/test_matrix_p0_coverage.py](../tests/baseline/test_matrix_p0_coverage.py) |
+
+当前条件不足的 22 条 P0 统一登记在 [config/deferred_cases.yaml](../config/deferred_cases.yaml)。它们不进入默认收集和执行；具备对应账号、Wazuh、SSH、K8s、ticket 或 Agent 资源后再逐条实现。
 
 ---
 

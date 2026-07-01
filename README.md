@@ -1,6 +1,6 @@
 # AI-SOC 测试套件
 
-针对 **人工智能创新平台 (AI-SOC)** http://192.168.1.193:16003 的工程化、可复现的安全测试套件。
+针对 **人工智能创新平台 (AI-SOC)** http://192.168.1.193:16001 的工程化、可复现的安全测试套件。
 
 把 docx 总方案与 xlsx 用例矩阵中的 100 条用例，**用代码钉住**：每次执行都自动生成同样结构的证据包与报告，任何同事拉下代码、装好依赖、填好凭据，就能复现出和上一次一样的报告。
 
@@ -9,9 +9,10 @@
 ## 是什么
 
 - **测试方法论**：MITRE ATT&CK 主线 + SOC 闭环 + AI/Agent 运行时安全（三层模型，详见 [docs/01_scheme_overview.md](docs/01_scheme_overview.md)）
-- **用例规模**：100 条总用例（来源 xlsx，本仓库已扩展到 114 条）；本仓库**已落地** 6 步 e2e pipeline + **20 条首批 P0** + **11 条 workflow 第二批** + **20 条 HTTP-only 第三批** = **57 个测试函数**（详见 [docs/08_p0_case_index.md](docs/08_p0_case_index.md)）
+- **用例规模**：100 条总用例（来源 xlsx，本仓库已扩展到 114 条）；本仓库现有 **59 个测试函数**，Excel P0 已实现 32 条，另有 22 条因测试条件不足明确暂缓（详见 [docs/08_p0_case_index.md](docs/08_p0_case_index.md)）
 - **运行框架**：pytest + 自定义 EvidenceRecorder（六层证据链）+ AIScorer（七维度评分）
 - **产物**：每次运行在 `reports/<时间戳>/` 下生成 `report.md`、`report.json` 和 `evidence/<用例ID>.json`
+- **Web 控制台**：支持多环境配置、临时凭据、一键测试、实时日志、RBAC 与历史报告，详见 [docs/09_test_console.md](docs/09_test_console.md)
 
 ---
 
@@ -37,6 +38,16 @@ open reports/$(ls -t reports | head -1)/report.md
 
 更详细的步骤、排错、证据上传，看 **[docs/03_reproduce.md](docs/03_reproduce.md)**。
 
+### Web 控制台
+
+```bash
+cp .env.console.example .env.console
+$EDITOR .env.console  # 设置初始管理员密码
+docker compose --env-file .env.console -f docker-compose.console.yml up -d --build
+```
+
+浏览器访问 `http://<控制台主机>:17000/`。控制台使用独立 Compose，不修改被测环境的 `docker-compose.yml`。
+
 ---
 
 ## 目录速查
@@ -47,6 +58,10 @@ soc-test/
 ├── requirements.txt         # Python 依赖
 ├── pytest.ini               # pytest 配置 + marker
 ├── conftest.py              # 全局 fixture（target / wazuh / ssh_host / evidence_recorder）
+├── console_backend/         # FastAPI、SQLite、RBAC 与串行 Runner
+├── console_frontend/        # React + TypeScript + Vite 运维工作台
+├── console_tests/           # 控制台 API、隔离与安全边界测试
+├── docker-compose.console.yml
 │
 ├── config/
 │   ├── target.yaml          # 目标平台 URL 与超时
@@ -89,6 +104,7 @@ soc-test/
 | **MITRE 映射原理** | [docs/06_mitre_mapping.md](docs/06_mitre_mapping.md) |
 | 五大类测试边界 | [docs/07_test_categories.md](docs/07_test_categories.md) |
 | 本轮 20 条 P0 索引 | [docs/08_p0_case_index.md](docs/08_p0_case_index.md) |
+| **Web 测试控制台部署与原理** | [docs/09_test_console.md](docs/09_test_console.md) |
 
 ---
 
@@ -113,6 +129,24 @@ soc-test/
 ---
 
 ## 更新日志
+
+### 2026-07-01（Docker 部署链路验证）
+- 更新内容：完成测试控制台的实际 Docker Compose 构建、启动、重启与最小任务验证；Dockerfile 和 Compose 增加可选基础镜像、PyPI、npm 源覆盖，并为依赖安装增加有限重试和超时，官方源仍为默认值。
+- 影响范围：`Dockerfile.console-api`、`console_frontend/Dockerfile`、`docker-compose.console.yml`、`.env.console.example`、`docs/09_test_console.md`。
+- 验证结果：`api` 容器健康、前端 `17000` 可登录；重启后 SQLite 中的环境和会话保持；容器内探测 `http://192.168.1.193:16001` 返回 200；运行 `SOC-MATRIX-001` 为 **1 PASS / 0 FAIL**，报告见 `reports/20260701-082421-5486/`；运行快照不含凭据，`tmpfs` 无任务临时文件残留。
+- 备注：本机首次构建使用已有基础镜像和已验证的国内依赖源覆盖，解决 Docker Hub/npm/PyPI 链路间歇 EOF、ECONNRESET 和下载缓慢问题；生产部署应替换为组织内部可信镜像仓库和软件源。
+
+### 2026-06-30（Web 测试控制台）
+- 更新内容：新增 React/FastAPI 测试控制台，支持多环境非敏感配置、本地账号 RBAC、CSRF、防登录爆破、串行测试队列、运行取消、SSE 日志、报告与证据包下载；pytest 改为运行级配置和报告目录隔离，临时凭据仅存在于内存和 `tmpfs`。
+- 影响范围：`console_backend/`、`console_frontend/`、`console_tests/`、`conftest.py`、`scripts/generate_report.py`、独立 Compose 与控制台文档。
+- 验证结果：控制台测试 **11 passed**；前端 TypeScript/Vite 生产构建通过；Compose 配置解析通过；浏览器端完成登录→创建环境→执行 `SOC-MATRIX-001`→查看报告，并验证 1280px/390px 布局无页面级溢出和控制台错误。真实 HTTP-only 回归首次因目标服务中途间歇超时为 44 passed / 5 failed，随后只重跑这 5 条为 **5 passed**；完整证据报告为 **34 PASS / 14 WARN / 1 FAIL**，见 `reports/20260630-072828-ec4c/report.md`。
+- 备注：首版为单机 `LocalRunner` 串行执行；控制器重启会使未完成任务失败，因为临时凭据按设计不持久化。Docker Compose 镜像构建两次均在 Docker Hub 拉取 `node:22-alpine` 元数据时 TLS/EOF 失败，本地前后端构建和 Compose 解析不受影响。
+
+### 2026-06-29（第四次更新：P0 覆盖治理与证据完整性）
+- 更新内容：目标切换为用户确认的 `16001`；补齐 `SOC-TEL-010`，证据 JSON 落盘时统一递归脱敏并生成 SHA-256 sidecar；新增 P0 矩阵覆盖守卫，将当前缺少执行条件的 22 条 P0 显式登记；默认运行脚本排除 `destructive`。
+- 影响范围：`config/target.yaml`、`config/deferred_cases.yaml`、`tests/common/evidence.py`、`tests/tel/test_tel_010_evidence_integrity.py`、`tests/baseline/test_matrix_p0_coverage.py`、`scripts/run_all.sh`、`scripts/run_http_only.sh`、相关中文文档。
+- 验证结果：`bash scripts/run_http_only.sh` 在 `16001` 上收集 49 条，pytest 为 **49 passed / 10 deselected / 0 failed**；证据报告为 **38 PASS / 10 WARN / 1 FAIL**，FAIL 为 `SOC-AI-003` 匿名可读 reasoning 会话；49 份证据 JSON 的 SHA-256 sidecar 全部校验一致，伪造敏感值扫描为 0。报告见 `reports/20260629-111737/report.md`。
+- 备注：暂缓用例不创建空壳测试，避免以大量 SKIP 掩盖真实实现进度；满足登记的前置条件后再实现并从暂缓清单移除。
 
 ### 2026-06-26（第二次更新：HTTP-only 第三批 20 条）
 - 更新内容：新增 20 条 HTTP-only 用例（全程无需 SSH/Wazuh 凭据，0 SKIP）：

@@ -1,7 +1,7 @@
 # 被测平台配置（公开，可入库）
 target:
   name: "人工智能创新平台 (AI-SOC)"
-  base_url: "http://192.168.1.193:16003"
+  base_url: "http://192.168.1.193:16001"
   timeout_seconds: 10
   retries: 2
 

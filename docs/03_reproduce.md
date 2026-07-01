@@ -2,6 +2,8 @@
 
 > 任何不熟悉本项目的同事，按本 SOP 走 7 步，**最终产物**：和上次结构一致的 `reports/<run_id>/report.md` + JSON 证据包。
 
+需要通过浏览器维护多个环境并执行测试时，使用独立的 [Web 测试控制台](09_test_console.md)；以下步骤仍适用于纯命令行复现。
+
 ---
 
 ## 步骤 0 — 前置条件
@@ -9,7 +11,7 @@
 | 条件 | 检查命令 |
 |---|---|
 | Python ≥ 3.9 | `python3 --version` |
-| 能访问目标平台 | `curl -fsS http://192.168.1.193:16003/ \| head -c 200` |
+| 能访问目标平台 | `curl -fsS http://192.168.1.193:16001/ \| head -c 200` |
 | （可选）能 SSH 到被测主机 | `ssh -o ConnectTimeout=3 <ssh_user>@192.168.1.193 'true'` |
 | （可选）能访问 Wazuh Indexer | `curl -sk -u admin:<pass> https://192.168.1.193:9200/_cat/health` |
 
@@ -69,7 +71,7 @@ bash scripts/run_pipeline_only.sh
 bash scripts/run_http_only.sh
 ```
 
-预期：约 13 个用例 PASS / WARN，0 FAIL（WARN 通常出现在 SOC-AI-009/012/ATT-010，说明平台目前的某些端点鉴权状态需人工复核）。
+预期：约 49 个用例 PASS / WARN，已知 `SOC-AI-003` 会暴露 reasoning 会话并产生安全 FAIL；其余 WARN 需按报告人工复核。
 
 ---
 
@@ -84,7 +86,7 @@ bash scripts/run_all.sh
 只跑某一类：
 
 ```bash
-python3 -m pytest tests/ -v -m "p0 and att"          # 仅 P0 + 攻击场景
+python3 -m pytest tests/ -v -m "p0 and att and not destructive" # 仅安全可执行的 P0 攻击场景
 python3 -m pytest tests/attack/test_att_004_*.py -v   # 单条用例
 python3 -m pytest tests/ -v -m "p0 and not needs_ssh" # P0 中不需 SSH 的
 ```

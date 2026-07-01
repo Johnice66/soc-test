@@ -4,6 +4,7 @@ pytest 全局 fixture + session hook
 from __future__ import annotations
 
 import os
+import secrets
 import sys
 import time
 from datetime import datetime
@@ -29,6 +30,11 @@ ROOT = Path(__file__).parent
 CONFIG_DIR = ROOT / "config"
 
 
+def _runtime_config_path() -> Path:
+    configured = os.environ.get("SOC_TEST_RUN_CONFIG")
+    return Path(configured).resolve() if configured else CONFIG_DIR / "target.yaml"
+
+
 def _load_yaml(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -39,30 +45,41 @@ def _load_yaml(path: Path) -> dict:
 # ---------- session 级 ----------
 @pytest.fixture(scope="session")
 def target_cfg() -> dict:
-    return _load_yaml(CONFIG_DIR / "target.yaml")
+    return _load_yaml(_runtime_config_path())
 
 
 @pytest.fixture(scope="session")
 def credentials() -> dict:
     """凭据。若 credentials.yaml 不存在，返回空 dict。"""
+    runtime = _load_yaml(_runtime_config_path())
+    if "credentials" in runtime:
+        return runtime.get("credentials") or {}
     return _load_yaml(CONFIG_DIR / "credentials.yaml")
 
 
 @pytest.fixture(scope="session")
 def run_id() -> str:
-    return datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    return os.environ.get("SOC_TEST_RUN_ID") or (
+        datetime.utcnow().strftime("%Y%m%d-%H%M%S") + f"-{secrets.token_hex(2)}"
+    )
 
 
 @pytest.fixture(scope="session")
-def run_dir(run_id: str) -> str:
-    d = ROOT / "reports" / run_id
+def run_dir(run_id: str, target_cfg: dict, pytestconfig) -> str:
+    configured = os.environ.get("SOC_TEST_RUN_DIR")
+    d = Path(configured).resolve() if configured else ROOT / "reports" / run_id
     (d / "evidence").mkdir(parents=True, exist_ok=True)
+    snapshot = {k: v for k, v in target_cfg.items() if k != "credentials"}
+    (d / "run-config.snapshot.yaml").write_text(
+        yaml.safe_dump(snapshot, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    pytestconfig._soc_run_dir = str(d)
     return str(d)
 
 
 @pytest.fixture(scope="session")
 def target(target_cfg, credentials) -> HTTPClient:
-    return HTTPClient.from_yaml(str(CONFIG_DIR / "target.yaml"), credentials=credentials)
+    return HTTPClient.from_config(target_cfg, credentials=credentials)
 
 
 @pytest.fixture(scope="session")
@@ -144,10 +161,12 @@ def evidence_recorder(request, run_dir: str, run_id: str, target):
 # ---------- session hook：自动生成报告 ----------
 def pytest_sessionfinish(session, exitstatus):
     """所有用例跑完后，调用 scripts/generate_report.py 聚合证据。"""
-    rd = session.config.cache.get("run_dir", None) if hasattr(session.config, "cache") else None
-    # 简单方式：直接 import 并跑
+    rd = getattr(session.config, "_soc_run_dir", None)
     try:
-        from scripts.generate_report import generate_for_latest
-        generate_for_latest(reports_root=str(ROOT / "reports"))
+        from scripts.generate_report import generate, generate_for_latest
+        if rd:
+            generate(Path(rd))
+        else:
+            generate_for_latest(reports_root=str(ROOT / "reports"))
     except Exception as e:
         print(f"\n[warn] 报告生成失败: {e}", file=sys.stderr)

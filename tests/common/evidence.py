@@ -7,7 +7,9 @@ EvidenceRecorder：六层证据链记录器（详细原理见 docs/04_evidence_m
 from __future__ import annotations
 
 import json
+import hashlib
 import os
+import re
 import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
@@ -126,10 +128,16 @@ class EvidenceRecorder:
         return self._write()
 
     def _write(self) -> str:
-        """把当前 data 写到 evidence/<case_id>.json。可重复调用，会覆盖之前的写出。"""
+        """写证据 JSON，并同步生成覆盖该文件内容的 SHA-256 sidecar。"""
         path = os.path.join(self.run_dir, "evidence", f"{self.data.case_id}.json")
+        payload = json.dumps(
+            _redact(asdict(self.data)), ensure_ascii=False, indent=2, default=str
+        ) + "\n"
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(asdict(self.data), f, ensure_ascii=False, indent=2, default=str)
+            f.write(payload)
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        with open(f"{path}.sha256", "w", encoding="ascii") as f:
+            f.write(f"{digest}  {os.path.basename(path)}\n")
         return path
 
     # 用例可以在执行过程中显式塞这两个属性，供 conftest teardown 时附加观测
@@ -150,3 +158,28 @@ def _normalize(item: Any) -> Any:
         return dict(vars(item))
     except Exception:
         return repr(item)
+
+
+_SENSITIVE_KEYS = ("authorization", "password", "passwd", "secret", "token", "api_key", "apikey", "cookie")
+_INLINE_SECRETS = [
+    re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+"),
+    re.compile(r"(?i)((?:password|passwd|secret|token|api[_-]?key)\s*[=:]\s*['\"]?)[^\s'\";,]+"),
+    re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+"),
+]
+
+
+def _redact(value: Any, key: str = "") -> Any:
+    """在证据落盘边界递归脱敏，避免调用方遗漏清洗。"""
+    lowered = key.lower().replace("-", "_")
+    if any(part in lowered for part in _SENSITIVE_KEYS) and value not in (None, "", False):
+        return "[REDACTED]"
+    if isinstance(value, dict):
+        return {k: _redact(v, str(k)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact(v) for v in value]
+    if isinstance(value, tuple):
+        return [_redact(v) for v in value]
+    if isinstance(value, str):
+        for pattern in _INLINE_SECRETS:
+            value = pattern.sub(lambda m: f"{m.group(1)}[REDACTED]" if m.lastindex else "[REDACTED]", value)
+    return value

@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+console_frontend/node_modules
+console_frontend/dist
+reports/*
+!reports/.gitkeep
+data
+.env
+.env.console
+.DS_Store

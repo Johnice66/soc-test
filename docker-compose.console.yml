@@ -1,0 +1,43 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.console-api
+      args:
+        PYTHON_IMAGE: ${SOC_CONSOLE_PYTHON_IMAGE:-python:3.12-slim}
+        PIP_INDEX_URL: ${SOC_CONSOLE_PIP_INDEX_URL:-https://pypi.org/simple}
+    environment:
+      SOC_CONSOLE_DB: /app/data/console.db
+      SOC_CONSOLE_REPORTS: /app/reports
+      SOC_CONSOLE_TMP: /run/soc-console
+      SOC_CONSOLE_ADMIN_USERNAME: ${SOC_CONSOLE_ADMIN_USERNAME:-admin}
+      SOC_CONSOLE_ADMIN_PASSWORD: ${SOC_CONSOLE_ADMIN_PASSWORD:?请在 .env.console 中设置初始管理员密码}
+      SOC_CONSOLE_SECURE_COOKIE: ${SOC_CONSOLE_SECURE_COOKIE:-false}
+    volumes:
+      - console_data:/app/data
+      - ./reports:/app/reports
+    tmpfs:
+      - /run/soc-console:mode=0700,size=32m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:17001/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./console_frontend
+      args:
+        NODE_IMAGE: ${SOC_CONSOLE_NODE_IMAGE:-node:22-alpine}
+        NGINX_IMAGE: ${SOC_CONSOLE_NGINX_IMAGE:-nginx:1.27-alpine}
+        NPM_REGISTRY: ${SOC_CONSOLE_NPM_REGISTRY:-https://registry.npmjs.org}
+    ports:
+      - "17000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  console_data:

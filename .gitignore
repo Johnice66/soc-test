@@ -5,9 +5,13 @@ __pycache__/
 .venv/
 venv/
 .env
+.env.console
 config/credentials.yaml
 reports/
 !reports/.gitkeep
+data/
+console_frontend/node_modules/
+console_frontend/dist/
 *.log
 .DS_Store
 .claude/

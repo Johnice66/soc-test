@@ -59,6 +59,10 @@ class HTTPClient:
     def from_yaml(cls, target_yaml: str, credentials: dict | None = None) -> "HTTPClient":
         with open(target_yaml, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
+        return cls.from_config(cfg, credentials)
+
+    @classmethod
+    def from_config(cls, cfg: dict, credentials: dict | None = None) -> "HTTPClient":
         t = cfg["target"]
         creds = (credentials or {}).get("platform", {}) if credentials else {}
         return cls(

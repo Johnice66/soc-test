@@ -12,8 +12,18 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import yaml
+
 
 STATUS_ICON = {"PASS": "✅", "WARN": "⚠️", "FAIL": "❌", "SKIP": "⏭️", "INFO": "ℹ️", "RUNNING": "🔄"}
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def _target_url(run_dir: Path) -> str:
+    snapshot = run_dir / "run-config.snapshot.yaml"
+    source = snapshot if snapshot.exists() else ROOT / "config/target.yaml"
+    config = yaml.safe_load(source.read_text(encoding="utf-8"))
+    return config["target"]["base_url"]
 
 
 def _load_evidence(run_dir: Path) -> list[dict]:
@@ -182,6 +192,7 @@ def _evidence_section(r: dict) -> str:
 
 def generate(run_dir: Path) -> dict:
     records = _load_evidence(run_dir)
+    target_url = _target_url(run_dir)
     totals = {"PASS": 0, "WARN": 0, "FAIL": 0, "SKIP": 0, "RUNNING": 0}
     for r in records:
         totals[r.get("status", "")] = totals.get(r.get("status", ""), 0) + 1
@@ -189,7 +200,7 @@ def generate(run_dir: Path) -> dict:
     md = []
     md.append(f"# AI-SOC 测试报告 — run {run_dir.name}")
     md.append("")
-    md.append(f"**目标平台：** http://192.168.1.193:16003")
+    md.append(f"**目标平台：** {target_url}")
     md.append(f"**生成时间：** {datetime.utcnow().isoformat()}Z")
     md.append(f"**用例总数：** {len(records)}  |  ✅ PASS: {totals.get('PASS',0)}  |  ⚠️ WARN: {totals.get('WARN',0)}  |  ❌ FAIL: {totals.get('FAIL',0)}  |  ⏭️ SKIP: {totals.get('SKIP',0)}")
     md.append("")
@@ -219,7 +230,7 @@ def generate(run_dir: Path) -> dict:
 
     summary = {
         "run_id": run_dir.name,
-        "target": "http://192.168.1.193:16003",
+        "target": target_url,
         "generated_at": datetime.utcnow().isoformat(),
         "totals": totals,
         "cases": records,
